@@ -70,7 +70,7 @@ if(BUILD_STATIC)
         target_compile_options(xmp_static PRIVATE -fPIC)
     endif()
 
-    target_include_directories(xmp_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(xmp_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     if(LIBM_REQUIRED)
         target_link_libraries(xmp_static PUBLIC ${LIBM_LIBRARY})
@@ -120,7 +120,7 @@ if(BUILD_SHARED)
     target_compile_options(xmp_shared PRIVATE ${LIBXMP_CFLAGS})
     target_compile_definitions(xmp_shared PUBLIC ${LIBXMP_DEFINES_PUBLIC})
 
-    target_include_directories(xmp_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(xmp_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
     set_target_properties(xmp_shared PROPERTIES VERSION ${libxmp_VERSION} SOVERSION ${libxmp_VERSION_MAJOR})
 
