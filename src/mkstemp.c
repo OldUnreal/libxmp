@@ -38,7 +38,6 @@
  */
 
 #include <string.h>
-#include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
 
@@ -46,6 +45,8 @@
 #include <process.h>
 #define getpid _getpid
 #define open _open
+#else
+#include <unistd.h>
 #endif
 
 #ifndef O_BINARY
