@@ -29,13 +29,15 @@ static void convert_endian(unsigned char *p, int l)
 	}
 }
 
-static int compare_md5(unsigned char *d, char *digest)
+static int compare_md5(const unsigned char *d, const char *digest)
 {
 	int i;
 
-	/*for (i = 0; i < 16 ; i++)
+	/*
+	for (i = 0; i < 16 ; i++)
 		printf("%02x", d[i]);
-	printf("\n");*/
+	printf("\n");
+	*/
 
 	for (i = 0; i < 16 && *digest; i++, digest += 2) {
 		char hex[3];
@@ -50,7 +52,7 @@ static int compare_md5(unsigned char *d, char *digest)
 	return 0;
 }
 
-int main()
+int main(void)
 {
 	int ret;
 	xmp_context c;
@@ -94,9 +96,9 @@ int main()
 		time += info.frame_time;
 
 		if (is_big_endian())
-			convert_endian(info.buffer, info.buffer_size >> 1);
+			convert_endian((unsigned char *)info.buffer, info.buffer_size >> 1);
 
-		MD5Update(&ctx, info.buffer, info.buffer_size);
+		MD5Update(&ctx, (unsigned char *)info.buffer, info.buffer_size);
 
 		printf(".");
 		fflush(stdout);
@@ -104,7 +106,12 @@ int main()
 
 	MD5Final(digest, &ctx);
 
-	if (compare_md5(digest, "769a03855bac202597a581a8628424d5") < 0) {
+	/*
+	  x87 floating point results in a very slightly different output from
+	  SSE and other floating point implementations, so check two hashes.
+	 */
+	if (compare_md5(digest, "0fb814a84db24a21d93851cbeebe2a98") < 0 && /* SSE2 */
+	    compare_md5(digest, "97eb1ff2bb3ee8252133cdee90fb162d") < 0) { /* x87 */
 		printf("rendering error\n");
 		goto err;
 	}

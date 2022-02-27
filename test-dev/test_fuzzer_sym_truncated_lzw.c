@@ -9,12 +9,11 @@
 TEST(test_fuzzer_sym_truncated_lzw)
 {
 	xmp_context opaque;
-	struct xmp_module_info info;
 	int ret;
 
 	opaque = xmp_create_context();
 	ret = xmp_load_module(opaque, "data/f/load_sym_truncated_lzw.sym");
-	fail_unless(ret == 0, "module load");
+	fail_unless(ret == -XMP_ERROR_LOAD, "module load");
 
 	xmp_free_context(opaque);
 }

@@ -1,8 +1,29 @@
-/*
- * Pro-Wizard_1.c
- *
+/* ProWizard
  * Copyright (C) 1997-1999 Sylvain "Asle" Chipaux
  * Copyright (C) 2006-2007 Claudio Matsuoka
+ * Copyright (C) 2021 Alice Rowan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+/*
+ * Pro-Wizard_1.c
  */
 
 #include "xmp.h"
@@ -95,14 +116,12 @@ int pw_wizardry(HIO_HANDLE *file_in, FILE *file_out, const char **name)
 {
 	const struct pw_format *format;
 
-  /**************************   SEARCH   ******************************/
-
+	/**********   SEARCH   **********/
 	format = pw_check(file_in, NULL);
 	if (format == NULL) {
 		return -1;
 	}
 
-	hio_error(file_in); /* reset error flag */
 	hio_seek(file_in, 0, SEEK_SET);
 	if (format->depack(file_in, file_out) < 0) {
 		return -1;
@@ -130,7 +149,7 @@ const struct pw_format *pw_check(HIO_HANDLE *f, struct xmp_test_info *info)
 	unsigned char *b;
 	int s = BUF_SIZE;
 
-	b = calloc(1, BUF_SIZE);
+	b = (unsigned char *) calloc(1, BUF_SIZE);
 	if (b == NULL)
 		return NULL;
 
@@ -141,7 +160,7 @@ const struct pw_format *pw_check(HIO_HANDLE *f, struct xmp_test_info *info)
 		res = pw_formats[i]->test(b, title, s);
 		if (res > 0) {
 			/* Extra data was requested. */
-			unsigned char *buf = realloc(b, s + res);
+			unsigned char *buf = (unsigned char *) realloc(b, s + res);
 			if (buf == NULL) {
 				free(b);
 				return NULL;

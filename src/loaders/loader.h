@@ -1,10 +1,10 @@
 #ifndef XMP_LOADER_H
 #define XMP_LOADER_H
 
-#include "common.h"
-#include "effects.h"
-#include "format.h"
-#include "hio.h"
+#include "../common.h"
+#include "../effects.h"
+#include "../format.h"
+#include "../hio.h"
 
 /* Sample flags */
 #define SAMPLE_FLAG_DIFF	0x0001	/* Differential */
@@ -30,7 +30,9 @@ int	libxmp_alloc_pattern		(struct xmp_module *, int);
 int	libxmp_alloc_track		(struct xmp_module *, int, int);
 int	libxmp_alloc_tracks_in_pattern	(struct xmp_module *, int);
 int	libxmp_alloc_pattern_tracks	(struct xmp_module *, int, int);
+#ifndef LIBXMP_CORE_PLAYER
 int	libxmp_alloc_pattern_tracks_long(struct xmp_module *, int, int);
+#endif
 char	*libxmp_instrument_name		(struct xmp_module *, int, uint8 *, int);
 
 char	*libxmp_copy_adjust		(char *, uint8 *, int);
@@ -38,8 +40,8 @@ int	libxmp_copy_name_for_fopen	(char *, const char *, int);
 int	libxmp_test_name		(uint8 *, int);
 void	libxmp_read_title		(HIO_HANDLE *, char *, int);
 void	libxmp_set_xxh_defaults		(struct xmp_module *);
-void	libxmp_decode_protracker_event	(struct xmp_event *, uint8 *);
-void	libxmp_decode_noisetracker_event(struct xmp_event *, uint8 *);
+void	libxmp_decode_protracker_event	(struct xmp_event *, const uint8 *);
+void	libxmp_decode_noisetracker_event(struct xmp_event *, const uint8 *);
 void	libxmp_disable_continue_fx	(struct xmp_event *);
 int	libxmp_check_filename_case	(const char *, const char *, char *, int);
 void	libxmp_get_instrument_path	(struct module_data *, char *, int);
@@ -47,7 +49,9 @@ void	libxmp_set_type			(struct module_data *, const char *, ...);
 int	libxmp_load_sample		(struct module_data *, HIO_HANDLE *, int,
 					 struct xmp_sample *, const void *);
 void	libxmp_free_sample		(struct xmp_sample *);
+#ifndef LIBXMP_CORE_PLAYER
 void	libxmp_schism_tracker_string	(char *, size_t, int, int);
+#endif
 
 extern uint8		libxmp_ord_xlat[];
 extern const int	libxmp_arch_vol_table[];

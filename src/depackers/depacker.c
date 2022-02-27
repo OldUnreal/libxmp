@@ -22,10 +22,10 @@
 
 #include <errno.h>
 
-#include "common.h"
+#include "../common.h"
 #include "depacker.h"
-#include "hio.h"
-#include "tempfile.h"
+#include "../hio.h"
+#include "../tempfile.h"
 #include "xfnmatch.h"
 
 #ifdef _WIN32
@@ -38,7 +38,7 @@
  *
  * This popen reimplementation uses CreateProcess instead and should be safe.
  */
-#include "win32/ptpopen.h"
+#include "ptpopen.h"
 #ifndef HAVE_POPEN
 #define HAVE_POPEN 1
 #endif
@@ -54,7 +54,7 @@
 #define BUFLEN 16384
 
 static struct depacker *depacker_list[] = {
-#if defined LIBXMP_AMIGA && !defined __AROS__
+#if defined(LIBXMP_AMIGA) && defined(HAVE_PROTO_XFDMASTER_H)
 	&libxmp_depacker_xfd,
 #endif
 	&libxmp_depacker_zip,
@@ -65,23 +65,23 @@ static struct depacker *depacker_list[] = {
 	&libxmp_depacker_compress,
 	&libxmp_depacker_pp,
 	&libxmp_depacker_sqsh,
+	&libxmp_depacker_arc,
 	&libxmp_depacker_arcfs,
 	&libxmp_depacker_mmcmp,
 	&libxmp_depacker_muse,
 	&libxmp_depacker_lzx,
 	&libxmp_depacker_s404,
-	&libxmp_depacker_arc,
 	NULL
 };
-
-int test_oxm		(FILE *);
 
 #if defined(HAVE_FORK) && defined(HAVE_PIPE) && defined(HAVE_EXECVP) && \
     defined(HAVE_DUP2) && defined(HAVE_WAIT)
 #define DECRUNCH_USE_FORK
+
 #elif defined(HAVE_POPEN) && \
     (defined(_WIN32) || defined(__OS2__) || defined(__EMX__) || defined(__DJGPP__) || defined(__riscos__))
 #define DECRUNCH_USE_POPEN
+
 #else
 static int execute_command(const char * const cmd[], FILE *t) {
 	return -1;
@@ -199,20 +199,126 @@ static int execute_command(const char * const cmd[], FILE *t)
 }
 #endif /* USE_FORK */
 
+static int decrunch_command(HIO_HANDLE **h, const char * const cmd[], char **temp)
+{
+#if defined __ANDROID__ || defined __native_client__
+	/* Don't use external helpers in android */
+	return 0;
+#else
+	HIO_HANDLE *tmp;
+	FILE *t;
+
+	D_(D_WARN "Depacking file... ");
+
+	if ((t = make_temp_file(temp)) == NULL) {
+		goto err;
+	}
+
+	/* Depack file */
+	D_(D_INFO "External depacker: %s", cmd[0]);
+	if (execute_command(cmd, t) < 0) {
+		D_(D_CRIT "failed");
+		goto err2;
+	}
+
+	D_(D_INFO "done");
+
+	if (fseek(t, 0, SEEK_SET) < 0) {
+		D_(D_CRIT "fseek error");
+		goto err2;
+	}
+
+	if ((tmp = hio_open_file2(t)) == NULL)
+		return -1;  /* call closes on failure. */
+
+	hio_close(*h);
+	*h = tmp;
+	return 0;
+
+    err2:
+	fclose(t);
+    err:
+	return -1;
+#endif
+}
+
+static int decrunch_internal_tempfile(HIO_HANDLE **h, struct depacker *depacker, char **temp)
+{
+	HIO_HANDLE *tmp;
+	FILE *t;
+
+	D_(D_WARN "Depacking file... ");
+
+	if ((t = make_temp_file(temp)) == NULL) {
+		goto err;
+	}
+
+	/* Depack file */
+	D_(D_INFO "Internal depacker");
+	if (depacker->depack(*h, t, hio_size(*h)) < 0) {
+		D_(D_CRIT "failed");
+		goto err2;
+	}
+
+	D_(D_INFO "done");
+
+	if (fseek(t, 0, SEEK_SET) < 0) {
+		D_(D_CRIT "fseek error");
+		goto err2;
+	}
+
+	if ((tmp = hio_open_file2(t)) == NULL)
+		return -1; /* call closes on failure. */
+
+	hio_close(*h);
+	*h = tmp;
+	return 0;
+
+    err2:
+	fclose(t);
+    err:
+	return -1;
+}
+
+static int decrunch_internal_memory(HIO_HANDLE **h, struct depacker *depacker)
+{
+	HIO_HANDLE *tmp;
+	void *out;
+	long outlen;
+
+	D_(D_WARN "Depacking file... ");
+
+	/* Depack file */
+	D_(D_INFO "Internal depacker");
+	if (depacker->depack_mem(*h, &out, hio_size(*h), &outlen) < 0) {
+		D_(D_CRIT "failed");
+		return -1;
+	}
+
+	D_(D_INFO "done");
+
+	if ((tmp = hio_open_mem(out, outlen, 1)) == NULL) {
+		free(out);
+		return -1;
+	}
+
+	hio_close(*h);
+	*h = tmp;
+	return 0;
+}
+
 int libxmp_decrunch(HIO_HANDLE **h, const char *filename, char **temp)
 {
 	unsigned char b[1024];
 	const char *cmd[32];
-	FILE *f, *t;
 	int headersize;
 	int i;
 	struct depacker *depacker = NULL;
 
 	cmd[0] = NULL;
 	*temp = NULL;
-	f = (*h)->handle.file;
 
-	headersize = fread(b, 1, 1024, f);
+	headersize = hio_read(b, 1, 1024, *h);
 	if (headersize < 100) {	/* minimum valid file size */
 		return 0;
 	}
@@ -252,73 +358,31 @@ int libxmp_decrunch(HIO_HANDLE **h, const char *filename, char **temp)
 			cmd[i++] = "-x*.com";
 			cmd[i++] = filename;
 			cmd[i++] = NULL;
-		} else if (test_oxm(f) == 0) {
-			/* oggmod */
-			D_(D_INFO "oggmod");
-			depacker = &libxmp_depacker_oxm;
 		}
 	}
 
-	if (fseek(f, 0, SEEK_SET) < 0) {
-		goto err;
-	}
-
-	if (depacker == NULL && cmd[0] == NULL) {
-		D_(D_INFO "Not packed");
-		return 0;
-	}
-
-#if defined __ANDROID__ || defined __native_client__
-	/* Don't use external helpers in android */
-	if (cmd) {
-		return 0;
-	}
-#endif
-
-	/* When the filename is unknown (because it is a stream) don't use
-	 * external helpers
-	 */
-	if (cmd[0] && filename == NULL) {
-		return 0;
-	}
-
-	D_(D_WARN "Depacking file... ");
-
-	if ((t = make_temp_file(temp)) == NULL) {
-		goto err;
+	if (hio_seek(*h, 0, SEEK_SET) < 0) {
+		return -1;
 	}
 
 	/* Depack file */
 	if (cmd[0]) {
-		D_(D_INFO "External depacker: %s", cmd[0]);
-		if (execute_command(cmd, t) < 0) {
-			D_(D_CRIT "failed");
-			goto err2;
+		/* When the filename is unknown (because it is a stream) don't use
+		 * external helpers
+		 */
+		if (filename == NULL) {
+			return 0;
 		}
-	} else if (depacker) {
-		D_(D_INFO "Internal depacker");
-		if (depacker->depack(f, t) < 0) {
-			D_(D_CRIT "failed");
-			goto err2;
-		}
+
+		return decrunch_command(h, cmd, temp);
+	} else if (depacker && depacker->depack) {
+		return decrunch_internal_tempfile(h, depacker, temp);
+	} else if (depacker && depacker->depack_mem) {
+		return decrunch_internal_memory(h, depacker);
+	} else {
+		D_(D_INFO "Not packed");
+		return 0;
 	}
-
-	D_(D_INFO "done");
-
-	if (fseek(t, 0, SEEK_SET) < 0) {
-		D_(D_CRIT "fseek error");
-		goto err2;
-	}
-
-	hio_close(*h);
-	*h = hio_open_file2(t);
-
-	return (*h == NULL)? -1 : 0;
-
-    err2:
-	fclose(t);
-    err:
-	return -1;
 }
 
 /*
@@ -330,7 +394,8 @@ int libxmp_exclude_match(const char *name)
 	int i;
 
 	static const char *const exclude[] = {
-		"README", "readme",
+		"README", "readme", "ReadMe",
+		"ReadMe!", "readMe!", "!ReadMe!",
 		"*.DIZ", "*.diz",
 		"*.NFO", "*.nfo",
 		"*.DOC", "*.Doc", "*.doc",
@@ -339,6 +404,8 @@ int libxmp_exclude_match(const char *name)
 		"*.EXE", "*.exe",
 		"*.COM", "*.com",
 		"*.README", "*.readme", "*.Readme", "*.ReadMe",
+		/* Found in Spark archives. */
+		"\\?From", "From\\?", "InfoText",
 		NULL
 	};
 

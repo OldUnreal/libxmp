@@ -15,7 +15,7 @@ else()
 endif()
 # -----------------------------------
 
-if(EMSCRIPTEN OR VITA)
+if(EMSCRIPTEN OR VITA OR PSP)
     set(BUILD_SHARED_DEFAULT OFF)
 else()
     set(BUILD_SHARED_DEFAULT ON)
@@ -45,7 +45,7 @@ else()
 endif()
 
 if(MSVC)
-    set(LIBXMP_MSVC_DEFINES -D_USE_MATH_DEFINES -DPATH_MAX=1024)
+    set(LIBXMP_MSVC_DEFINES -D_USE_MATH_DEFINES)
     list(APPEND LIBXMP_DEFINES ${LIBXMP_MSVC_DEFINES})
 endif()
 
@@ -70,7 +70,7 @@ if(BUILD_STATIC)
         target_compile_options(xmp_static PRIVATE -fPIC)
     endif()
 
-    target_include_directories(xmp_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_include_directories(xmp_static PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
     if(LIBM_REQUIRED)
         target_link_libraries(xmp_static PUBLIC ${LIBM_LIBRARY})
@@ -120,7 +120,7 @@ if(BUILD_SHARED)
     target_compile_options(xmp_shared PRIVATE ${LIBXMP_CFLAGS})
     target_compile_definitions(xmp_shared PUBLIC ${LIBXMP_DEFINES_PUBLIC})
 
-    target_include_directories(xmp_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_SOURCE_DIR}/src)
+    target_include_directories(xmp_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
     set_target_properties(xmp_shared PROPERTIES VERSION ${libxmp_VERSION} SOVERSION ${libxmp_VERSION_MAJOR})
 
@@ -153,6 +153,9 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/examples/CMakeLists.txt")
     add_subdirectory(examples)
 endif()
 
+
+# === Documentation ====
+add_subdirectory(docs)
 
 # === Install ====
 include(GNUInstallDirs)

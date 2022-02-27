@@ -17,7 +17,7 @@ static int test_module_from_memory_helper(const char* filename, struct xmp_test_
 TEST(test_api_test_module_from_memory)
 {
 	struct xmp_test_info tinfo;
-	int ret, err;
+	int ret;
 	char* buf;
 
 	/* Sufficient to hold all file buffers */
@@ -52,6 +52,12 @@ TEST(test_api_test_module_from_memory)
 	fail_unless(ret == 0, "IT test module fail");
 	fail_unless(strcmp(tinfo.name, "arpeggio + pitch slide") == 0, "IT module name fail");
 	fail_unless(strcmp(tinfo.type, "Impulse Tracker") == 0, "IT module type fail");
+
+	/* Small file (<256 bytes) */
+	ret = test_module_from_memory_helper("data/small.gdm", &tinfo, buf);
+	fail_unless(ret == 0, "GDM (<256) test module fail");
+	fail_unless(strcmp(tinfo.name, "") == 0, "GDM (<256) module name fail");
+	fail_unless(strcmp(tinfo.type, "General Digital Music") == 0, "GDM (<256) module type fail");
 
 	/* S3M (no unpacker for memory) */
 	ret = test_module_from_memory_helper("data/xzdata", &tinfo, buf);

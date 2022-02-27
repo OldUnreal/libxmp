@@ -4,15 +4,17 @@ CFLAGS += -DLIBXMP_NO_PROWIZARD
 !ifeq USE_DEPACKERS 0
 CFLAGS += -DLIBXMP_NO_DEPACKERS
 !endif
-CFLAGS += -DHAVE_ALLOCA_H -DHAVE_FNMATCH -DHAVE_MKSTEMP -DHAVE_UMASK
+CFLAGS += -DHAVE_FNMATCH -DHAVE_MKSTEMP -DHAVE_UMASK
 #CFLAGS += -DDEBUG
-CFLAGS += -Iinclude -Isrc
+CFLAGS += -Iinclude
 
 DLLFLAGS=-bd -DBUILDING_DLL
 STATICFLAGS=-DBUILDING_STATIC
 
 DLLNAME=libxmp.dll
 EXPNAME=libxmp.exp
+# Note: not libxmp.map...
+MAPNAME=xmp.map
 LIBNAME=libxmp.lib
 LIBSTATIC=xmp_static.lib
 TESTNAME=libxmp-test.exe
@@ -31,7 +33,7 @@ BLD_LIB=$(LIBNAME)
 OBJS=@OBJS@
 PROWIZ_OBJS=@POBJS@
 DEPACKER_OBJS=@DOBJS@
-ALL_OBJS=$(OBJS) $(OS_OBJS)
+ALL_OBJS=$(OBJS)
 !ifeq USE_PROWIZARD 1
 ALL_OBJS+= $(PROWIZ_OBJS)
 !endif
@@ -56,7 +58,7 @@ test/test.obj: test/test.c
 
 # rely on symbol name, not ordinal: -irn switch of wlib is default, but -inn is not.
 $(DLLNAME) $(LIBNAME) $(EXPNAME): $(ALL_OBJS)
-	wlink NAM $(DLLNAME) SYSTEM $(SYSTEM_DLL) INITINSTANCE TERMINSTANCE OP QUIET FIL {$(ALL_OBJS)} OPTION IMPF=$(EXPNAME)
+	wlink NAM $(DLLNAME) SYSTEM $(SYSTEM_DLL) INITINSTANCE TERMINSTANCE OP QUIET FIL {$(ALL_OBJS)} OP IMPF=$(EXPNAME) OP MAP=$(MAPNAME)
 	wlib -q -b -n -c -pa -s -t -zld -ii -io -inn $(LIBNAME) +$(DLLNAME)
 
 $(LIBSTATIC): $(ALL_OBJS)
@@ -80,7 +82,8 @@ clean: .symbolic
 	rm -f $(TEST_OBJS)
 
 distclean: clean .symbolic
-	rm -f $(DLLNAME) $(EXPNAME) $(LIBNAME) $(LIBSTATIC) test/$(DLLNAME) test/$(TESTNAME)
+	rm -f *.err
+	rm -f $(DLLNAME) $(EXPNAME) $(MAPNAME) $(LIBNAME) $(LIBSTATIC) test/$(DLLNAME) test/$(TESTNAME)
 
 !ifdef __UNIX__
 CMD_CP=cp

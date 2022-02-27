@@ -2,7 +2,6 @@
 #include "../src/effects.h"
 #include "../src/mixer.h"
 #include "../src/virtual.h"
-#include <math.h>
 
 /*
 Periodtable for Tuning 0, Normal
@@ -12,8 +11,6 @@ Periodtable for Tuning 0, Normal
 
 Amiga limits: 907 to 108
 */
-
-#define PERIOD ((int)round(1.0 * info.channel_info[0].period / 4096))
 
 /* From 08_sad_song.it, channel 06, pattern 004/011 */
 
@@ -89,7 +86,6 @@ TEST(test_effect_it_vcol_g)
 	xmp_context opaque;
 	struct context_data *ctx;
 	struct player_data *p;
-	struct mixer_voice *vi;
 	struct xmp_frame_info info;
 	int i, voc, ret;
 
@@ -108,8 +104,7 @@ TEST(test_effect_it_vcol_g)
 
 		voc = map_channel(p, 0);
        	 	fail_unless(voc >= 0, "virtual map");
-       	 	vi = &p->virt.voice_array[voc];
-	
+
 		fail_unless(PERIOD == vals[i], "portamento error");
 	}
 

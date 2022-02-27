@@ -5,12 +5,14 @@ VERSION		= $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_RELEASE)
 COMPAT_VERSION	= $(VERSION_MAJOR)
 
 CC		= @CC@
-CFLAGS		= -c @CFLAGS@ @DEFS@ -D_REENTRANT -DLIBXMP_CORE_PLAYER -DLIBXMP_NO_PROWIZARD -DLIBXMP_NO_DEPACKERS
+CFLAGS		= -c @CFLAGS@ @DEFS@ -D_REENTRANT -DLIBXMP_CORE_PLAYER
+#CFLAGS		+= -DDEBUG
 CFLAGS_SHARED	= @CFLAGS_SHARED@
 CFLAGS_STATIC	= -DBUILDING_STATIC
 LD		= @CC@
 LDFLAGS		= @LDFLAGS@
 LIBS		= @LIBS@
+AR		= @AR@
 RANLIB		= @RANLIB@
 INSTALL		= @INSTALL@
 DESTDIR		=
@@ -25,10 +27,10 @@ LD_VERSCRIPT	= @LD_VERSCRIPT@
 SHELL		= /bin/sh
 
 DIST		= libxmp-lite-$(VERSION)
-DFILES		= README INSTALL Changelog install-sh configure configure.ac \
-		  config.sub config.guess Makefile.in libxmp-lite.pc.in \
-		  Makefile.vc Makefile.os2 Makefile.w32 watcom.mif libxmp.map
-DDIRS		= include src loaders os2 test
+DFILES		= README INSTALL install-sh configure configure.ac config.sub config.guess    \
+		  Makefile.in Makefile.vc Makefile.os2 Makefile.w32 watcom.mif CMakeLists.txt \
+		  aclocal.m4 autogen.sh libxmp.map libxmp-lite.pc.in Changelog
+DDIRS		= include src loaders test cmake m4
 V		= 0
 LIB		= libxmp-lite.a
 SOLIB		= libxmp-lite.so
@@ -52,16 +54,17 @@ endif
 all: @STATIC@ @SHARED@
 
 include include/libxmp-lite/Makefile
+include cmake/Makefile
+include m4/Makefile
 include src/Makefile
 include src/loaders/Makefile
-include src/os2/Makefile
 include test/Makefile
 
 LOBJS = $(OBJS:.o=.lo)
 
 GCOBJS = $(OBJS:.o=.gco)
 
-CFLAGS += -Iinclude/libxmp-lite -Isrc
+CFLAGS += -Iinclude/libxmp-lite
 
 .SUFFIXES: .c .o .lo .a .so .dll .in .gco .gcda .gcno
 
@@ -115,7 +118,7 @@ lib/$(DLL): $(LOBJS)
 # The version number checks that dyld performs are limited to ensuring that
 # the compatibility version of the library being loaded is higher than the
 # compatibility version of the library that was used at build time.
-
+#
 lib/$(DYLIB): $(LOBJS)
 	@mkdir -p lib
 	@CMD='$(LD) $(LDFLAGS) -dynamiclib -Wl,-headerpad_max_install_names,$(DYLIB_COMPAT)-current_version,$(VERSION),-install_name,$(prefix)/lib/$(DYLIB) -o $@ $(LOBJS) $(LIBS)'; \
@@ -165,6 +168,7 @@ install: all
 	@mkdir -p $(DESTDIR)$(LIBDIR)/pkgconfig
 	@$(INSTALL) -m644 libxmp-lite.pc $(DESTDIR)$(LIBDIR)/pkgconfig/
 
+#FIXME: do better?
 depend:
 	@echo Building dependencies...
 	@echo > $@
@@ -173,7 +177,7 @@ depend:
 	    $(CC) $(CFLAGS) -MM $$c | \
 		sed "s!^.*\.o:!$$i $$l:!" >> $@ ; \
 	done
-	    
+
 dist: version-prepare dist-prepare dist-jni dist-subdirs
 
 dist-jni:
@@ -188,11 +192,11 @@ dist-prepare: vc-prepare watcom-prepare
 
 vc-prepare:
 	@echo Generate Makefile.vc
-	@sed -e 's!@OBJS@!$(subst /,\\,$(OBJS:.o=.obj))!' Makefile.vc.in > Makefile.vc
+	@sed -e 's!@OBJS@!\\\r\n $(subst /,\\,$(OBJS:.o=.obj \\\r\n))!' Makefile.vc.in > Makefile.vc
 
 watcom-prepare:
 	@echo Generate watcom.mif
-	@sed -e 's!@OBJS@!$(OBJS:.o=.obj)!' watcom.mif.in > watcom.mif
+	@sed -e 's!@OBJS@! \&\n $(OBJS:.o=.obj \&\n)!' watcom.mif.in > watcom.mif
 
 dist-subdirs: $(addprefix dist-,$(DDIRS))
 	chmod -R u+w $(DIST)/*

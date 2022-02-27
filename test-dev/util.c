@@ -1,7 +1,43 @@
 #include <math.h>
+#include "../src/hio.h"
 #include "test.h"
 
 #define BUFLEN 16384
+
+void read_file_to_memory(const char *filename, void **_buffer, long *_size)
+{
+	HIO_HANDLE *f = hio_open(filename, "rb");
+	void *buffer = NULL;
+	long size;
+
+	*_buffer = NULL;
+	*_size = 0;
+
+	if (f == NULL)
+		return;
+
+	size = hio_size(f);
+	if (size <= 0) {
+		hio_close(f);
+		return;
+	}
+
+	buffer = malloc(size);
+	if (buffer == NULL) {
+		hio_close(f);
+		return;
+	}
+
+	if (hio_read(buffer, 1, size, f) != size) {
+		hio_close(f);
+		free(buffer);
+		return;
+	}
+
+	hio_close(f);
+	*_buffer = buffer;
+	*_size = size;
+}
 
 int check_randomness(int *array, int size, double sdev)
 {
@@ -23,7 +59,7 @@ int check_randomness(int *array, int size, double sdev)
 	return dev > sdev;
 }
 
-int compare_md5(unsigned char *d, char *digest)
+int compare_md5(const unsigned char *d, const char *digest)
 {
 	int i;
 
@@ -44,7 +80,7 @@ int compare_md5(unsigned char *d, char *digest)
 	return 0;
 }
 
-int check_md5(char *path, char *digest)
+int check_md5(const char *path, const char *digest)
 {
 	unsigned char buf[BUFLEN];
 	unsigned char d[16];
@@ -100,7 +136,10 @@ static int read_line(char *line, int size, FILE *f)
 {
 	int pos;
 
-	fgets(line, size, f);
+	if (!fgets(line, size, f)) {
+		line[0] = '\0';
+		return 0;
+	}
 	pos = strlen(line);
 
 	if (pos > 0 && line[pos - 1] == '\n')
@@ -371,7 +410,6 @@ static void dump_envelope(struct xmp_envelope *env, FILE *f)
 
 void dump_module(struct xmp_module *mod, FILE *f)
 {
-	char line[1024];
 	int i, j;
 
 	/* Write title and format */
@@ -493,7 +531,7 @@ void dump_module(struct xmp_module *mod, FILE *f)
 			}
 		}
 
-		fprintf(f, "%u %u %u %u",
+		fprintf(f, "%d %d %d %d",
 			xxs->len, /* sample length */
 			xxs->lps, /* sample loop start */
 			xxs->lpe, /* sample loop end */
@@ -525,4 +563,40 @@ void dump_module(struct xmp_module *mod, FILE *f)
 			xxc->flg  /* channel flags */
 		);
 	}
+}
+
+void compare_playback(const char *filename, const struct playback_sequence *sequence,
+		      int rate, int flags, int interp)
+{
+	xmp_context opaque;
+	int count, ret;
+
+	opaque = xmp_create_context();
+	fail_unless(opaque, "create context");
+
+	ret = xmp_load_module(opaque, filename);
+	fail_unless(ret == 0, "module load");
+
+	ret = xmp_start_player(opaque, rate, flags);
+	fail_unless(ret == 0, "start player");
+
+	ret = xmp_set_player(opaque, XMP_PLAYER_INTERP, interp);
+	fail_unless(ret == 0, "set interp");
+
+	while (sequence->action != PLAY_END) {
+		switch (sequence->action) {
+		case PLAY_END: /* silence warning */
+			break;
+
+		case PLAY_FRAMES:
+			for (count = sequence->value; count > 0; count--)
+				ret = xmp_play_frame(opaque);
+
+			fail_unless(ret == sequence->result, "play frames");
+			break;
+		}
+		sequence++;
+	}
+
+	xmp_free_context(opaque);
 }

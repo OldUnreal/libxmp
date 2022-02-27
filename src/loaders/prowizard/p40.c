@@ -1,7 +1,29 @@
+/* ProWizard
+ * Copyright (C) 1997 Asle / ReDoX
+ * Copyright (C) 2007 Claudio Matsuoka
+ * Modified in 2021 by Alice Rowan.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 /*
- * The_Player_4.0.c   Copyright (C) 1997 Asle / ReDoX
- *                    Copyright (C) 2007 Claudio Matsuoka
- *                    Modified in 2021 by Alice Rowan.
+ * The_Player_4.0.c
  *
  * The Player 4.0a and 4.0b to Protracker.
  */
@@ -58,11 +80,12 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 {
 	uint8 c1, c2, c3, c4, c5;
 	uint8 tmp[1024];
-	uint8 len, npat, nsmp;
+	uint8 len, nsmp;
 	uint8 *tdata;
 	uint16 track_addr[128][4];
+	long in_size;
 	int trkdat_ofs, trktab_ofs, smp_ofs;
-	int ssize = 0;
+	/* int ssize = 0; */
 	int SampleAddress[31];
 	int SampleSize[31];
 	int i, j, k, l, a, b, c;
@@ -87,7 +110,7 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 	}
 #endif
 
-	npat = hio_read8(in);		/* read Real number of pattern */
+	hio_read8(in);			/* read Real number of pattern */
 	len = hio_read8(in);		/* read number of patterns in list */
 
 	/* Sanity check */
@@ -107,7 +130,12 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 	trktab_ofs = hio_read32b(in);	/* read track table address */
 	smp_ofs = hio_read32b(in);	/* read sample data address */
 
-	if (hio_error(in)) {
+	if (hio_error(in) || trkdat_ofs < 0 || trktab_ofs < 0 || smp_ofs < 0) {
+		return -1;
+	}
+
+	in_size = hio_size(in);
+	if (trkdat_ofs >= in_size || trktab_ofs >= in_size || smp_ofs >= in_size) {
 		return -1;
 	}
 
@@ -119,7 +147,7 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 		SampleAddress[i] = ins.addr;
 		ins.size = hio_read16b(in);		/* sample size */
 		SampleSize[i] = ins.size * 2;
-		ssize += SampleSize[i];
+		/* ssize += SampleSize[i]; */
 		ins.loop_addr = hio_read32b(in);	/* loop start */
 		ins.loop_size = hio_read16b(in);	/* loop size */
 		ins.fine = 0;
@@ -129,6 +157,12 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 		ins.vol = hio_read8(in);		/* read vol */
 		if (id == MAGIC_P41A)
 			ins.fine = hio_read16b(in);	/* finetune */
+
+		/* Sanity check */
+		if (ins.addr < 0 || ins.loop_addr < 0 || ins.loop_addr < ins.addr ||
+		    ins.addr > in_size - smp_ofs) {
+			return -1;
+		}
 
 		/* writing now */
 		pw_write_zero(out, 22);			/* sample name */
@@ -164,7 +198,7 @@ static int depack_p4x(HIO_HANDLE *in, FILE *out)
 
 	hio_seek(in, trkdat_ofs + 4, SEEK_SET);
 
-	if ((tdata = calloc(512, 256)) == NULL) {
+	if ((tdata = (uint8 *)calloc(512, 256)) == NULL) {
 		return -1;
 	}
 

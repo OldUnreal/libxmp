@@ -1,7 +1,30 @@
-/*
- * The Player common decoding
+/* ProWizard
  * Copyright (C) 1998 Sylvain "Asle" Chipaux
  * Copyright (C) 2006-2013 Sylvain "Asle" Chipaux
+ * Modified by Claudio Matsuoka
+ * Modified in 2021 by Alice Rowan
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a
+ * copy of this software and associated documentation files (the "Software"),
+ * to deal in the Software without restriction, including without limitation
+ * the rights to use, copy, modify, merge, publish, distribute, sublicense,
+ * and/or sell copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+/*
+ * The Player common decoding
  *
  * Code consolidated from depackers for different versions of The Player.
  * Original code by Sylvain Chipaux, modified for xmp by Claudio Matsuoka.
@@ -196,7 +219,7 @@ static int theplayer_depack(HIO_HANDLE *in, FILE *out, int version)
     /*uint8 pack = 0;*/
     int taddr[128][4];
     int sdata_addr = 0;
-    int ssize = 0;
+    /* int ssize = 0; */
     int i, j, k;
     int smp_size[31];
     int saddr[31];
@@ -204,7 +227,7 @@ static int theplayer_depack(HIO_HANDLE *in, FILE *out, int version)
     int val;
     uint8 buf[1024];
 
-    if ((tdata = calloc(512, 256)) == NULL) {
+    if ((tdata = (uint8 *)calloc(512, 256)) == NULL) {
 	return -1;
     }
 
@@ -272,7 +295,7 @@ static int theplayer_depack(HIO_HANDLE *in, FILE *out, int version)
 	        saddr[i] = saddr[i - 1] + smp_size[i - 1];
             }
 	    smp_size[i] = j * 2;
-	    ssize += smp_size[i];
+	    /*ssize += smp_size[i];*/
 	}
 	j = smp_size[i] / 2;
 
@@ -340,8 +363,7 @@ static int theplayer_depack(HIO_HANDLE *in, FILE *out, int version)
     /* read and write sample data */
     for (i = 0; i < nins; i++) {
 	hio_seek(in, sdata_addr + saddr[i], SEEK_SET);
-	smp_buffer = malloc(smp_size[i]);
-	memset(smp_buffer, 0, smp_size[i]);
+	smp_buffer = (signed char *) calloc(1, smp_size[i]);
 	hio_read(smp_buffer, smp_size[i], 1, in);
 	if (delta == 1) {
 	    for (j = 1; j < smp_size[i]; j++) {
@@ -438,10 +460,10 @@ static int theplayer_test(const uint8 *data, char *t, int s, int version)
 			if (pat > num_pat - 1)
 				return -1;
 		} else {
-                	if (pat & 0x01)
-                       		return -1;
+			if (pat & 0x01)
+				return -1;
 
-                	if (pat > num_pat * 2)
+			if (pat > num_pat * 2)
 				return -1;
 		}
 
@@ -482,7 +504,6 @@ static int theplayer_test(const uint8 *data, char *t, int s, int version)
 }
 
 
-
 static int depack_p50a(HIO_HANDLE *in, FILE *out)
 {
 	return theplayer_depack(in, out, 0x50);
@@ -500,7 +521,6 @@ const struct pw_format pw_p50a = {
 };
 
 
-
 static int depack_p60a(HIO_HANDLE *in, FILE *out)
 {
 	return theplayer_depack(in, out, 0x60);
@@ -516,10 +536,6 @@ const struct pw_format pw_p60a = {
 	test_p60a,
 	depack_p60a
 };
-
-
-
-
 
 
 #if 0
@@ -706,4 +722,3 @@ void testP60A_pack (void)
 	Test = GOOD;
 }
 #endif
-

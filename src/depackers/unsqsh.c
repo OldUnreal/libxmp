@@ -25,7 +25,7 @@
  * THE SOFTWARE.
  */
 
-#include "common.h"
+#include "../common.h"
 #include "depacker.h"
 
 struct io {
@@ -45,12 +45,13 @@ static uint8 ctable[] = {
 	8, 7, 6, 2, 3, 4, 5, 0
 };
 
-static uint16 xchecksum(uint32 * ptr, uint32 count)
+static uint16 xchecksum(uint8 *ptr, uint32 count)
 {
-	register uint32 sum = 0;
+	uint32 sum = 0;
 
 	while (count-- > 0) {
-		sum ^= *ptr++;
+		sum ^= readmem32b(ptr);
+		ptr += 4;
 	}
 
 	return (uint16) (sum ^ (sum >> 16));
@@ -215,7 +216,7 @@ static int unsqsh_block(struct io *io, uint8 *dest_start, uint8 *dest_end)
 					d1 = copy_data(io, d1, &data, dest_start, dest_end);
 					if (d1 < 0)
 						return -1;
-	      				d2 -= d2 >> 3;
+					d2 -= d2 >> 3;
 					continue;
 				}
 
@@ -304,7 +305,7 @@ static int unsqsh(uint8 *src, int srclen, uint8 *dest, int destlen)
 		type = *c++;
 		c++;			/* hchk */
 
-		sum = *(uint16 *)c;
+		sum = readmem16b(c);
 		c += 2;			/* checksum */
 
 		packed_size = readmem16b(c);	/* packed */
@@ -326,7 +327,7 @@ static int unsqsh(uint8 *src, int srclen, uint8 *dest, int destlen)
 		io.srclen = packed_size << 3;
 		memcpy(bc, c + packed_size, 3);
 		memset(c + packed_size, 0, 3);
-		lchk = xchecksum((uint32 *) (c), (packed_size + 3) >> 2);
+		lchk = xchecksum(c, (packed_size + 3) >> 2);
 		memcpy(c + packed_size, bc, 3);
 
 		if (lchk != sum) {
@@ -379,44 +380,43 @@ static int test_sqsh(unsigned char *b)
 	return memcmp(b, "XPKF", 4) == 0 && memcmp(b + 8, "SQSH", 4) == 0;
 }
 
-static int decrunch_sqsh(FILE * f, FILE * fo)
+static int decrunch_sqsh(HIO_HANDLE * f, void ** outbuf, long inlen, long * outlen)
 {
 	unsigned char *src, *dest;
 	int srclen, destlen;
 
-	if (read32b(f, NULL) != 0x58504b46)	/* XPKF */
+	if (hio_read32b(f) != 0x58504b46)	/* XPKF */
 		goto err;
 
-	srclen = read32b(f, NULL);
+	srclen = hio_read32b(f);
 
 	/* Sanity check */
 	if (srclen <= 8 || srclen > 0x100000)
 		goto err;
 
-	if (read32b(f, NULL) != 0x53515348)	/* SQSH */
+	if (hio_read32b(f) != 0x53515348)	/* SQSH */
 		goto err;
 
-	destlen = read32b(f, NULL);
+	destlen = hio_read32b(f);
 	if (destlen < 0 || destlen > 0x100000)
 		goto err;
 
-	if ((src = malloc(srclen + 3)) == NULL)
+	if ((src = (unsigned char *)calloc(1, srclen + 3)) == NULL)
 		goto err;
 
-	if ((dest = malloc(destlen + 100)) == NULL)
+	if ((dest = (unsigned char *)malloc(destlen + 100)) == NULL)
 		goto err2;
 
-	if (fread(src, srclen - 8, 1, f) != 1)
+	if (hio_read(src, srclen - 8, 1, f) != 1)
 		goto err3;
 
 	if (unsqsh(src, srclen, dest, destlen) != destlen)
 		goto err3;
 
-	if (fwrite(dest, destlen, 1, fo) != 1)
-		goto err3;
-
-	free(dest);
 	free(src);
+
+	*outbuf = dest;
+	*outlen = destlen;
 
 	return 0;
 
@@ -430,5 +430,6 @@ static int decrunch_sqsh(FILE * f, FILE * fo)
 
 struct depacker libxmp_depacker_sqsh = {
 	test_sqsh,
+	NULL,
 	decrunch_sqsh
 };

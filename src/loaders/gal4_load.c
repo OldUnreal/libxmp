@@ -22,7 +22,7 @@
 
 #include "loader.h"
 #include "iff.h"
-#include "period.h"
+#include "../period.h"
 
 /* Galaxy Music System 4.0 module file loader
  *
@@ -67,7 +67,8 @@ static int get_main(struct module_data *m, int size, HIO_HANDLE *f, void *parm)
 	char buf[64];
 	int flags;
 
-	hio_read(buf, 1, 64, f);
+	if (hio_read(buf, 1, 64, f) < 64)
+		return -1;
 	strncpy(mod->name, buf, 63);	/* ensure string terminator */
 	mod->name[63] = '\0';
 	libxmp_set_type(m, "Galaxy Music System 4.0");
@@ -218,7 +219,7 @@ static int get_inst(struct module_data *m, int size, HIO_HANDLE *f, void *parm)
 	struct local_data *data = (struct local_data *)parm;
 	int i, j;
 	int srate, finetune, flags;
-	int val, vwf, vra, vde, vsw, fade;
+	int val, vwf, vra, vde, vsw /*, fade*/;
 	uint8 buf[30];
 
 	hio_read8(f);		/* 00 */
@@ -281,7 +282,10 @@ static int get_inst(struct module_data *m, int size, HIO_HANDLE *f, void *parm)
 	if (mod->xxi[i].pei.npt <= 0 || mod->xxi[i].pei.npt > MIN(10, XMP_MAX_ENV_POINTS))
 		mod->xxi[i].pei.flg &= ~XMP_ENVELOPE_ON;
 
-	hio_read(buf, 1, 30, f);		/* volume envelope points */;
+	if (hio_read(buf, 1, 30, f) < 30) {	/* volume envelope points */
+		D_(D_CRIT "read error at vol env %d", i);
+		return -1;
+	}
 	for (j = 0; j < mod->xxi[i].aei.npt; j++) {
 		if (j >= 10) {
 			break;
@@ -290,7 +294,10 @@ static int get_inst(struct module_data *m, int size, HIO_HANDLE *f, void *parm)
 		mod->xxi[i].aei.data[j * 2 + 1] = buf[j * 3 + 2];
 	}
 
-	hio_read(buf, 1, 30, f);		/* pan envelope points */;
+	if (hio_read(buf, 1, 30, f) < 30) {	/* pan envelope points */
+		D_(D_CRIT "read error at pan env %d", i);
+		return -1;
+	}
 	for (j = 0; j < mod->xxi[i].pei.npt; j++) {
 		if (j >= 10) {
 			break;
@@ -299,7 +306,7 @@ static int get_inst(struct module_data *m, int size, HIO_HANDLE *f, void *parm)
 		mod->xxi[i].pei.data[j * 2 + 1] = buf[j * 3 + 2];
 	}
 
-	fade = hio_read8(f);		/* fadeout - 0x80->0x02 0x310->0x0c */
+	/*fade =*/ hio_read8(f);	/* fadeout - 0x80->0x02 0x310->0x0c */
 	hio_read8(f);			/* unknown */
 
 	D_(D_INFO "[%2X] %-28.28s  %2d ", i, mod->xxi[i].name, mod->xxi[i].nsm);
