@@ -164,10 +164,6 @@ endif()
 
 # Symbol visibility attributes check
 if(NOT (WIN32 OR CYGWIN OR AMIGA OR OS2))
-<<<<<<< HEAD
-
-=======
->>>>>>> 78df549be443c789ade9e0fa9b35dca9a6bee246
     cmake_push_check_state()
     set(CMAKE_REQUIRED_FLAGS "-fvisibility=hidden -Werror")
 
