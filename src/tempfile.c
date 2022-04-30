@@ -40,6 +40,7 @@
 #endif
 >>>>>>> 78df549be443c789ade9e0fa9b35dca9a6bee246
 #ifdef HAVE_UMASK
+#include <sys/types.h>
 #include <sys/stat.h>
 #endif
 
